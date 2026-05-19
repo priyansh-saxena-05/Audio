@@ -1,0 +1,473 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Sacramento&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#0d0118;
+  min-height:600px;
+  font-family:'Cormorant Garamond',Georgia,serif;
+  overflow:hidden;
+  position:relative;
+}
+#canvas-bg{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;}
+.screen{
+  position:relative;z-index:10;
+  width:100%;min-height:580px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:30px 24px 20px;
+}
+#title-block{
+  font-family:'Sacramento',cursive;
+  font-size:32px;
+  color:#ffbfe0;
+  text-align:center;
+  margin-bottom:28px;
+  letter-spacing:1px;
+  text-shadow:0 0 30px rgba(255,100,180,0.5);
+  opacity:0;
+  transform:translateY(-10px);
+  transition:opacity 1s,transform 1s;
+}
+#title-block.show{opacity:1;transform:translateY(0);}
+#poem-box{
+  width:100%;max-width:560px;
+  min-height:200px;
+  text-align:center;
+  display:flex;flex-direction:column;
+  align-items:center;gap:4px;
+  margin-bottom:18px;
+}
+.pline{
+  font-size:19px;
+  line-height:1.75;
+  color:#ffe0f0;
+  opacity:0;
+  transform:translateY(18px);
+  transition:opacity 0.8s ease,transform 0.8s ease;
+  text-shadow:0 0 8px rgba(255,150,200,0.3);
+}
+.pline.hl{color:#ffb3d9;font-weight:600;font-size:20px;}
+.pline.it{font-style:italic;color:#ffd6ef;}
+.pline.vis{opacity:1;transform:translateY(0);}
+#stanza-tag{
+  font-family:'Sacramento',cursive;
+  font-size:15px;
+  color:rgba(255,190,220,0.45);
+  margin-bottom:14px;
+  letter-spacing:1.5px;
+}
+#progress{
+  width:100%;max-width:560px;
+  height:3px;
+  background:rgba(255,180,220,0.15);
+  border-radius:2px;
+  margin-bottom:18px;
+  overflow:hidden;
+}
+#prog-fill{
+  height:100%;
+  background:linear-gradient(90deg,#c060a0,#ffb3d9);
+  border-radius:2px;
+  width:0%;
+  transition:width 0.5s linear;
+}
+#ctrl{
+  display:flex;gap:10px;flex-wrap:wrap;
+  justify-content:center;align-items:center;
+  margin-top:4px;
+}
+.btn{
+  background:rgba(255,160,210,0.1);
+  border:1px solid rgba(255,160,210,0.35);
+  color:#ffcce8;
+  padding:9px 20px;
+  border-radius:24px;
+  font-size:14px;
+  cursor:pointer;
+  font-family:'Cormorant Garamond',serif;
+  font-weight:600;
+  letter-spacing:0.4px;
+  transition:background 0.25s,transform 0.15s;
+}
+.btn:hover{background:rgba(255,160,210,0.22);transform:scale(1.04);}
+.btn:active{transform:scale(0.97);}
+#vol-row{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;color:rgba(255,200,230,0.5);
+  font-family:'Cormorant Garamond',serif;
+}
+#vol-row input[type=range]{width:80px;accent-color:#d060a0;}
+#ending{
+  display:none;
+  font-family:'Sacramento',cursive;
+  font-size:28px;
+  color:#ffb3d9;
+  text-align:center;
+  text-shadow:0 0 20px rgba(255,100,170,0.6);
+}
+#voice-status{
+  font-size:12px;
+  color:rgba(255,180,220,0.35);
+  margin-top:8px;
+  font-family:'Cormorant Garamond',serif;
+  letter-spacing:0.5px;
+  min-height:16px;
+}
+#waveform{
+  display:flex;align-items:center;gap:3px;
+  height:24px;margin-top:4px;
+}
+.wbar{
+  width:3px;
+  border-radius:2px;
+  background:rgba(255,150,200,0.5);
+  animation:wave 0.8s ease-in-out infinite;
+}
+@keyframes wave{0%,100%{height:4px;}50%{height:18px;}}
+</style>
+
+<canvas id="canvas-bg"></canvas>
+<div class="screen">
+  <div id="title-block">For My Sneha Saxena 💍</div>
+  <div id="stanza-tag"></div>
+  <div id="poem-box"></div>
+  <div id="ending"></div>
+  <div id="progress"><div id="prog-fill"></div></div>
+  <div id="waveform" style="display:none;">
+    <div class="wbar" style="animation-delay:0s;"></div>
+    <div class="wbar" style="animation-delay:0.1s;"></div>
+    <div class="wbar" style="animation-delay:0.2s;"></div>
+    <div class="wbar" style="animation-delay:0.3s;"></div>
+    <div class="wbar" style="animation-delay:0.15s;"></div>
+    <div class="wbar" style="animation-delay:0.25s;"></div>
+    <div class="wbar" style="animation-delay:0.05s;"></div>
+  </div>
+  <div id="voice-status">Press Play to begin</div>
+  <div id="ctrl">
+    <button class="btn" id="playBtn" onclick="handlePlay()">▶ Play Poem</button>
+    <button class="btn" onclick="handleRestart()">↺ Restart</button>
+    <div id="vol-row">
+      <span>♪ Music</span>
+      <input type="range" id="volSlider" min="0" max="100" value="40" step="1" oninput="setMusicVol(this.value)">
+      <span id="volNum">40%</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const stanzas=[
+  {label:'Verse I',lines:[
+    {t:'Sneha Saxena, my little star,',s:'hl'},
+    {t:'Cute and small, yet shining far.',s:''},
+    {t:'In your eyes, intelligence glows,',s:''},
+    {t:'A quiet strength the whole world knows.',s:''}
+  ]},
+  {label:'Verse II',lines:[
+    {t:'Your dressing sense, so classy and bright,',s:''},
+    {t:'Especially that soft white top in light.',s:'it'},
+    {t:'The way you smiled, simple and true,',s:''},
+    {t:'Made my whole world revolve around you.',s:'hl'}
+  ]},
+  {label:'Verse III',lines:[
+    {t:'That birthday at Breaking Brew,',s:'it'},
+    {t:'Felt like a dream that somehow came true.',s:''},
+    {t:'Among the laughter, candles, and cheer,',s:''},
+    {t:'I knew in my heart — I want you near.',s:'hl'}
+  ]},
+  {label:'Verse IV',lines:[
+    {t:'You love me more than words can say,',s:''},
+    {t:'In your own calm, caring way.',s:'it'},
+    {t:'And every time you hold my hand,',s:''},
+    {t:'Life feels perfectly planned.',s:'hl'}
+  ]},
+  {label:'Final Verse',lines:[
+    {t:'Not just today, not just for fun,',s:''},
+    {t:'But for all my days till they are done.',s:''},
+    {t:'Sneha, my love, my forever view,',s:'hl'},
+    {t:'One day I hope to marry you. 💍✨',s:'hl'}
+  ]}
+];
+
+const totalLines=stanzas.reduce((a,s)=>a+s.lines.length,0);
+let shownLines=0,stopped=true,isPlaying=false;
+let audioCtx=null,musicNodes=[],musicGain=null;
+let voiceGain=null;
+
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  musicGain=audioCtx.createGain();
+  musicGain.gain.value=0.35;
+  musicGain.connect(audioCtx.destination);
+  voiceGain=audioCtx.createGain();
+  voiceGain.gain.value=1.0;
+  voiceGain.connect(audioCtx.destination);
+  startBackgroundMusic();
+}
+
+function setMusicVol(v){
+  document.getElementById('volNum').textContent=v+'%';
+  if(musicGain) musicGain.gain.setTargetAtTime(v/100*0.8,audioCtx.currentTime,0.1);
+}
+
+function note(freq,start,dur,type='sine',vol=0.15){
+  const osc=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  osc.type=type;
+  osc.frequency.value=freq;
+  g.gain.setValueAtTime(0,start);
+  g.gain.linearRampToValueAtTime(vol,start+0.08);
+  g.gain.setValueAtTime(vol,start+dur-0.15);
+  g.gain.linearRampToValueAtTime(0,start+dur);
+  osc.connect(g);
+  g.connect(musicGain);
+  osc.start(start);
+  osc.stop(start+dur+0.05);
+  return osc;
+}
+
+function chord(freqs,start,dur,vol=0.07){
+  freqs.forEach(f=>note(f,start,dur,'sine',vol));
+}
+
+function startBackgroundMusic(){
+  if(!audioCtx) return;
+  const t=audioCtx.currentTime;
+  const bpm=52;
+  const beat=60/bpm;
+  const measure=beat*4;
+
+  const progression=[
+    [261.63,329.63,392,493.88],
+    [220,277.18,329.63,415.3],
+    [246.94,311.13,369.99,493.88],
+    [196,261.63,311.13,392]
+  ];
+
+  const melody=[
+    {f:523.25,d:beat*2},{f:493.88,d:beat},{f:440,d:beat},
+    {f:523.25,d:beat*1.5},{f:587.33,d:beat*0.5},{f:523.25,d:beat*2},
+    {f:493.88,d:beat*2},{f:440,d:beat},{f:392,d:beat},
+    {f:440,d:beat*1.5},{f:493.88,d:beat*0.5},{f:523.25,d:beat*2},
+    {f:587.33,d:beat*2},{f:523.25,d:beat},{f:493.88,d:beat},
+    {f:440,d:beat*1.5},{f:523.25,d:beat*0.5},{f:587.33,d:beat*2},
+    {f:523.25,d:beat*2},{f:493.88,d:beat},{f:440,d:beat},
+    {f:392,d:beat*2},{f:440,d:beat*2}
+  ];
+
+  const totalBars=16;
+  for(let bar=0;bar<totalBars;bar++){
+    const chs=progression[bar%4];
+    chord(chs,t+bar*measure,measure*0.92,0.055);
+    chord([chs[0]/2,chs[1]/2],t+bar*measure,measure*0.92,0.04);
+    for(let b=0;b<4;b++){
+      note(chs[0]/4,t+bar*measure+b*beat,beat*0.5,'sine',0.06);
+    }
+  }
+
+  let mt=t+0.1;
+  for(let loop=0;loop<2;loop++){
+    melody.forEach(({f,d})=>{
+      note(f,mt,d*0.88,'sine',0.12);
+      note(f*2,mt,d*0.88,'sine',0.03);
+      mt+=d;
+    });
+  }
+
+  const restartDelay=(totalBars*measure+0.5)*1000;
+  setTimeout(()=>{if(!stopped||isPlaying) startBackgroundMusic();},restartDelay);
+}
+
+function canvas(){
+  const c=document.getElementById('canvas-bg');
+  const ctx=c.getContext('2d');
+  c.width=680;c.height=600;
+  const stars=[];
+  for(let i=0;i<120;i++) stars.push({x:Math.random()*680,y:Math.random()*600,r:Math.random()*1.5+0.3,s:Math.random()*Math.PI*2,sp:0.003+Math.random()*0.01});
+  const petals=[];
+  function addPetal(){
+    petals.push({x:Math.random()*680,y:-20,vx:(Math.random()-0.5)*0.5,vy:0.4+Math.random()*0.4,rot:Math.random()*360,rs:(Math.random()-0.5)*1.2,op:0.7+Math.random()*0.3,size:6+Math.random()*6});
+  }
+  let pTimer=0;
+  function draw(ts){
+    ctx.clearRect(0,0,680,600);
+    ctx.fillStyle='#0d0118';ctx.fillRect(0,0,680,600);
+    const grd=ctx.createRadialGradient(340,300,50,340,300,340);
+    grd.addColorStop(0,'rgba(80,10,80,0.35)');
+    grd.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,680,600);
+    stars.forEach(s=>{
+      s.s+=s.sp;
+      const a=0.3+0.7*Math.abs(Math.sin(s.s));
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,220,240,${a})`;ctx.fill();
+    });
+    if(ts-pTimer>800&&isPlaying){addPetal();pTimer=ts;}
+    for(let i=petals.length-1;i>=0;i--){
+      const p=petals[i];
+      p.x+=p.vx;p.y+=p.vy;p.rot+=p.rs;
+      if(p.y>620){petals.splice(i,1);continue;}
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);
+      ctx.beginPath();ctx.ellipse(0,0,p.size,p.size*0.5,0,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,150,200,${p.op*0.6})`;ctx.fill();
+      ctx.restore();
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+}
+
+function getBestVoice(){
+  const vs = speechSynthesis.getVoices();
+
+  // Soft, warm, natural female voices
+  const preferred = [
+    'Samantha',
+    'Karen',
+    'Moira',
+    'Tessa',
+    'Veena',
+    'Google UK English Female',
+    'Google US English',
+    'Microsoft Zira',
+    'Microsoft Aria',
+    'Fiona',
+    'en-GB',
+    'en-IN',
+    'en-US'
+  ];
+
+  for (const pref of preferred){
+    const match = vs.find(v =>
+      v.name === pref ||
+      v.name.includes(pref)
+    );
+    if(match) return match;
+  }
+
+  // Fallback female-like voices
+  const femaleHints = [
+    'female','woman','zira','aria',
+    'samantha','karen','moira',
+    'tessa','veena','fiona'
+  ];
+
+  const femaleVoice = vs.find(v =>
+    v.lang.startsWith('en') &&
+    femaleHints.some(h => v.name.toLowerCase().includes(h))
+  );
+
+  if(femaleVoice) return femaleVoice;
+
+  return vs.find(v => v.lang.startsWith('en')) || vs[0];
+}
+
+function speak(text,cb){
+  if(stopped){cb&&cb();return;}
+  speechSynthesis.cancel();
+  setTimeout(()=>{
+    if(stopped){cb&&cb();return;}
+    const u=new SpeechSynthesisUtterance(text.replace(/[💍✨💗🌸]/g,'').replace(/,/g,', ').replace(/—/g,'... '));
+    const v=getBestVoice();
+    if(v) u.voice=v;
+    u.rate=0.92;
+    u.pitch=1.02;
+    u.volume=1.0;
+    u.onend=()=>setTimeout(cb,180);
+    u.onerror=cb;
+    speechSynthesis.speak(u);
+    document.getElementById('voice-status').textContent='🎙 Warm narration voice: '+( v?v.name:'Default voice');
+  },80);
+}
+
+function clearPoem(){document.getElementById('poem-box').innerHTML='';}
+
+function showLine(stanzaIdx,lineIdx,cb){
+  if(stopped){cb&&cb();return;}
+  const st=stanzas[stanzaIdx];
+  if(!st||lineIdx>=st.lines.length){cb&&cb();return;}
+  const ld=st.lines[lineIdx];
+  const el=document.createElement('div');
+  el.className='pline'+(ld.s?' '+ld.s:'');
+  el.textContent=ld.t;
+  document.getElementById('poem-box').appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('vis')));
+  shownLines++;
+  document.getElementById('prog-fill').style.width=(shownLines/totalLines*100)+'%';
+  speak(ld.t,cb);
+}
+
+function playStanza(si,cb){
+  if(stopped){cb&&cb();return;}
+  clearPoem();
+  document.getElementById('stanza-tag').textContent=stanzas[si].label;
+  let li=0;
+  function next(){
+    if(stopped){cb&&cb();return;}
+    if(li<stanzas[si].lines.length){showLine(si,li++,next);}
+    else setTimeout(()=>{if(!stopped)cb&&cb();},700);
+  }
+  next();
+}
+
+function playAll(){
+  let si=0;
+  function next(){
+    if(stopped) return;
+    if(si<stanzas.length){playStanza(si++,next);}
+    else showEnding();
+  }
+  next();
+}
+
+function showEnding(){
+  isPlaying=false;
+  clearPoem();
+  document.getElementById('stanza-tag').textContent='';
+  const e=document.getElementById('ending');
+  e.style.display='block';
+  e.innerHTML='💍 One day I hope to marry you, Sneha 💍<br><span style="font-size:16px;display:block;margin-top:10px;font-family:serif;color:rgba(255,180,220,0.7)">With all my heart ✨</span>';
+  document.getElementById('playBtn').textContent='▶ Play Again';
+  document.getElementById('voice-status').textContent='';
+  speak('One day I hope to marry you, Sneha. With all my heart.',()=>{});
+}
+
+function handlePlay(){
+  if(isPlaying) return;
+  initAudio();
+  if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
+  stopped=false;
+  isPlaying=true;
+  shownLines=0;
+  document.getElementById('ending').style.display='none';
+  document.getElementById('playBtn').textContent='♪ Playing...';
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('waveform').style.display='flex';
+  document.getElementById('title-block').classList.add('show');
+  speechSynthesis.getVoices();
+  speak('For My Sneha Saxena.',()=>{if(!stopped) playAll();});
+}
+
+function handleRestart(){
+  stopped=true;
+  speechSynthesis.cancel();
+  isPlaying=false;
+  shownLines=0;
+  clearPoem();
+  document.getElementById('ending').style.display='none';
+  document.getElementById('stanza-tag').textContent='';
+  document.getElementById('playBtn').textContent='▶ Play Poem';
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('voice-status').textContent='Press Play to begin';
+  document.getElementById('waveform').style.display='none';
+  if(audioCtx){audioCtx.close();audioCtx=null;musicGain=null;voiceGain=null;}
+  setTimeout(()=>{stopped=false;},300);
+}
+
+canvas();
+setTimeout(()=>{
+  speechSynthesis.getVoices();
+  document.getElementById('title-block').classList.add('show');
+},500);
+</script>
